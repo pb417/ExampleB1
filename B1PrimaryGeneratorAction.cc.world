@@ -33,14 +33,12 @@
 #include "G4LogicalVolumeStore.hh"
 #include "G4LogicalVolume.hh"
 #include "G4Box.hh"
-#include "G4Tubs.hh"
 #include "G4RunManager.hh"
 #include "G4ParticleGun.hh"
 #include "G4ParticleTable.hh"
 #include "G4ParticleDefinition.hh"
 #include "G4SystemOfUnits.hh"
 #include "Randomize.hh"
-#include "math.h"
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
@@ -76,7 +74,9 @@ B1PrimaryGeneratorAction::~B1PrimaryGeneratorAction()
 
 void B1PrimaryGeneratorAction::GeneratePrimaries(G4Event* anEvent)
 {
-  //This function is called at the begining of each event
+  //this function is called at the begining of each event
+  //
+
 
   //Momentum Components
   
@@ -92,35 +92,22 @@ void B1PrimaryGeneratorAction::GeneratePrimaries(G4Event* anEvent)
   // In order to avoid dependence of PrimaryGeneratorAction
   // on DetectorConstruction class we get Envelope volume
   // from G4LogicalVolumeStore.
-
-  //
-  // We are not geting the fEnvelope variable of the class
-  //
-
-  /*
-  G4double envSizeXY = 0.*m;
-  G4double envSizeZ = 0.*m;
- 
+  
+  G4double envSizeXY = 0.;
+  G4double envSizeZ = 0.;
 
   if (!fEnvelopeBox)
   {
-    // std::cout << "I'VE ENTERED THE 1st IF\n" << std::endl;
-    
     G4LogicalVolume* envLV
       = G4LogicalVolumeStore::GetInstance()->GetVolume("World");
     if ( envLV ) fEnvelopeBox = dynamic_cast<G4Box*>(envLV->GetSolid());
   }
-  
- 
-  if ( fEnvelopeBox ) {
-    // std::cout << "I'VE ENTERED THE 2nd IF\n" << std::endl;
 
+  if ( fEnvelopeBox ) {
     envSizeXY = fEnvelopeBox->GetXHalfLength()*2.;
     envSizeZ = fEnvelopeBox->GetZHalfLength()*2.;
   }  
   else  {
-    //std::cout << "I'VE ENTERED THE ELSE\n" << std::endl;
-
     G4ExceptionDescription msg;
     msg << "Envelope volume of box shape not found.\n"; 
     msg << "Perhaps you have changed geometry.\n";
@@ -128,60 +115,46 @@ void B1PrimaryGeneratorAction::GeneratePrimaries(G4Event* anEvent)
     G4Exception("B1PrimaryGeneratorAction::GeneratePrimaries()",
      "MyCode0002",JustWarning,msg);
   }
-  */
-  
-  //Get the Cylinder shape
 
-  G4double cylRad = 0.;
-  G4double cylZ = 0.;
-  
-  G4LogicalVolume* cylLV 
-    = G4LogicalVolumeStore::GetInstance()->GetVolume("Tank2");
-  G4Tubs* cyl; //Solid Volume
-   if ( cylLV ) cyl = dynamic_cast<G4Tubs*>(cylLV->GetSolid());
-
-  cylRad = cyl->GetOuterRadius();
-  cylZ = cyl->GetZHalfLength()*2.;
-
-  //
-  // Initial position of the particles
-  //
   G4double rnd = G4UniformRand();
-  G4double Phi0 = G4UniformRand()*deg; //The angle phi is randomly chosen
-  Phi0 = Phi0 * 360.;                //between 0 and 360 deg
-
-  G4double Rho0,z0;
-  G4ThreeVector pos;
-
-  G4double probSide = (cylZ * 2 * M_PI * cylRad)/(cyl->GetSurfaceArea()); //Probability of the particle coming from the area of the tube wall, not the taps. It is the ratio (area tube)/(total area)
-
-  if(rnd < probSide) //The particle comes from the tube wall
+  G4double x0, y0, z0;
+  if(rnd < (1./3.))
   {
-    Rho0 = cylRad;
-    z0 = cylZ * (G4UniformRand()-0.5);
-    if (rnd < probSide/2)
+    x0 = -0.5* envSizeXY;
+    y0 = envSizeXY * (G4UniformRand()-0.5);
+    z0 = envSizeZ * (G4UniformRand()-0.5);
+    if (rnd < 1./6.)
+      {
+	x0 = -x0;
+      }
+  }
+  
+  if(rnd >= (1./3.) && rnd < (2./3.))
+  {
+    x0 = envSizeXY * (G4UniformRand()-0.5);
+    y0 = -0.5* envSizeXY;
+    z0 = envSizeXY * (G4UniformRand()-0.5);
+    if (rnd < 0.5)
+      {
+	y0 = -y0;
+      }
+  }
+
+  else
+  {
+    x0 = envSizeXY * (G4UniformRand()-0.5);
+    y0 = envSizeXY * (G4UniformRand()-0.5);
+    z0 = -0.5* envSizeZ;
+    if (rnd < (5./6.))
       {
 	z0 = -z0;
       }
   }
-  else //The particle comes from one of the taps
-  {
-    Rho0 = cylRad * G4UniformRand();
-    z0 = cylZ/2;
-    if (rnd < (1 + probSide)/2)
-      {
-	z0 = -z0;
-      }
-  }
+
+
   
-  pos.setRhoPhiZ(Rho0, Phi0, z0);
-  std::cout << "rnd = " <<  rnd << std::endl;
-  std::cout << "Probability particle starting in the side = " <<  probSide << std::endl;
-  std::cout << "Dymensions cylinder r = " <<  cylRad  << " z = " << cylZ << std::endl;
-  std::cout << "Initial pos rho = " <<  Rho0  << " z0 = " << z0 << std::endl;
-  
-  fParticleGun->SetParticlePosition(G4ThreeVector(pos));
-  
+  fParticleGun->SetParticlePosition(G4ThreeVector(x0,y0,z0));
+
   fParticleGun->GeneratePrimaryVertex(anEvent);
 }
 
