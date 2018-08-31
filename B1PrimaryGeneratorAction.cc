@@ -1,0 +1,179 @@
+//
+// ********************************************************************
+// * License and Disclaimer                                           *
+// *                                                                  *
+// * The  Geant4 software  is  copyright of the Copyright Holders  of *
+// * the Geant4 Collaboration.  It is provided  under  the terms  and *
+// * conditions of the Geant4 Software License,  included in the file *
+// * LICENSE and available at  http://cern.ch/geant4/license .  These *
+// * include a list of copyright holders.                             *
+// *                                                                  *
+// * Neither the authors of this software system, nor their employing *
+// * institutes,nor the agencies providing financial support for this *
+// * work  make  any representation or  warranty, express or implied, *
+// * regarding  this  software system or assume any liability for its *
+// * use.  Please see the license in the file  LICENSE  and URL above *
+// * for the full disclaimer and the limitation of liability.         *
+// *                                                                  *
+// * This  code  implementation is the result of  the  scientific and *
+// * technical work of the GEANT4 collaboration.                      *
+// * By using,  copying,  modifying or  distributing the software (or *
+// * any work based  on the software)  you  agree  to acknowledge its *
+// * use  in  resulting  scientific  publications,  and indicate your *
+// * acceptance of all terms of the Geant4 Software license.          *
+// ********************************************************************
+//
+// $Id: B1PrimaryGeneratorAction.cc 94307 2015-11-11 13:42:46Z gcosmo $
+//
+/// \file B1PrimaryGeneratorAction.cc
+/// \brief Implementation of the B1PrimaryGeneratorAction class
+
+#include "B1PrimaryGeneratorAction.hh"
+
+#include "G4LogicalVolumeStore.hh"
+#include "G4LogicalVolume.hh"
+#include "G4Box.hh"
+#include "G4Tubs.hh"
+#include "G4RunManager.hh"
+#include "G4ParticleGun.hh"
+#include "G4ParticleTable.hh"
+#include "G4ParticleDefinition.hh"
+#include "G4SystemOfUnits.hh"
+#include "Randomize.hh"
+#include "math.h"
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+B1PrimaryGeneratorAction::B1PrimaryGeneratorAction()
+: G4VUserPrimaryGeneratorAction(),
+  fParticleGun(0), 
+  fEnvelopeBox(0)
+{
+  G4int n_particle = 1;
+  fParticleGun  = new G4ParticleGun(n_particle);
+
+  // default particle kinematic
+  G4ParticleTable* particleTable = G4ParticleTable::GetParticleTable();
+  G4String particleName;
+  G4ParticleDefinition* particle
+    = particleTable->FindParticle(particleName="gamma");
+  fParticleGun->SetParticleDefinition(particle);
+
+  //Components of momentum
+
+  fParticleGun->SetParticleMomentumDirection(G4ThreeVector(0., 0., 1.));
+  fParticleGun->SetParticleEnergy(3.*MeV);
+}
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+B1PrimaryGeneratorAction::~B1PrimaryGeneratorAction()
+{
+  delete fParticleGun;
+}
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+void B1PrimaryGeneratorAction::GeneratePrimaries(G4Event* anEvent)
+{
+  //This function is called at the begining of each event
+
+
+  /*
+  //Momentum Components
+
+  
+  G4double px ,py, pz;
+  px =  G4UniformRand()-0.5; //A random number between -0.5 and 0.5 is generated
+  py =  G4UniformRand()-0.5;
+  pz = G4UniformRand()-0.5;
+  */
+
+
+
+
+
+  
+  //std::cout << "MOMENT COMPONENTS(" <<  px << ", " << py << ", " << pz << ")" << std::endl;
+  //fParticleGun->SetParticleMomentumDirection(G4ThreeVector(px, py, pz).unit());
+ 
+  
+  //Get the Cylinder shape from which the particles are produced
+
+  G4double cylRad = 0.;
+  G4double cylZ = 0.;
+  
+  G4LogicalVolume* cylLV 
+    = G4LogicalVolumeStore::GetInstance()->GetVolume("Xenon");
+  G4Tubs* cyl; //Solid Volume
+   if ( cylLV ) cyl = dynamic_cast<G4Tubs*>(cylLV->GetSolid());
+
+  cylRad = cyl->GetOuterRadius();
+  cylZ = cyl->GetZHalfLength()*2.;
+
+  //
+  // Initial position of the particles
+  //
+  G4double rnd = G4UniformRand();
+  G4double Phi0 = G4UniformRand()*deg; //The angle phi is randomly chosen
+  Phi0 = Phi0 * 360.;                  //between 0 and 360 deg
+
+  G4double Rho0,z0;
+  G4ThreeVector pos;
+
+  G4double probSide = (cylZ * 2 * M_PI * cylRad)/(cyl->GetSurfaceArea()); //Probability of the particle coming from the area of the tube wall, not the taps. It is the ratio (area tube)/(total area)
+
+  if(rnd < probSide) //The particle comes from the tube wall
+  {
+    Rho0 = cylRad;
+    z0 = cylZ * (G4UniformRand()-0.5);
+    if (rnd < probSide/2)
+      {
+	z0 = -z0;
+      }
+  }
+  else //The particle comes from one of the taps
+  {
+    Rho0 = cylRad * G4UniformRand();
+    z0 = cylZ/2;
+    if (rnd < (1 + probSide)/2)
+      {
+	z0 = -z0;
+      }
+  }
+
+  pos.setRhoPhiZ(Rho0, Phi0, z0);
+  
+  /*
+  std::cout << "rnd = " <<  rnd << std::endl;
+  std::cout << "Probability particle starting in the side = " <<  probSide << std::endl;
+  std::cout << "Dymensions cylinder r = " <<  cylRad  << " z = " << cylZ << std::endl;
+  std::cout << "Initial pos rho = " <<  Rho0  << " z0 = " << z0 << std::endl;
+  */
+  
+  fParticleGun->SetParticlePosition(G4ThreeVector(pos));
+
+
+  //
+  //Momentum Components
+  //Generated such that the particle can only go into the solid angle composed by the half sphere the detector is in
+  //
+
+  G4double pRho, pPhi, pZ;
+
+  pRho = G4UniformRand();
+  pZ = G4UniformRand() - 0.5;
+  pPhi = Phi0 + (180.* G4UniformRand()*deg + 90.*deg);
+
+  G4ThreeVector moment;
+  moment.setRhoPhiZ(pRho, pPhi, pZ);
+  fParticleGun->SetParticleMomentumDirection(moment.unit());
+
+
+  
+  
+  fParticleGun->GeneratePrimaryVertex(anEvent);
+}
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
